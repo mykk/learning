@@ -1,4 +1,5 @@
-use std::{fs, io::{BufRead, BufReader, Write}, net::{TcpListener, TcpStream}};
+use std::{fs, io::{BufRead, BufReader, Write}, net::{TcpListener, TcpStream}, thread, time::Duration};
+use rust_web_server::ThreadPool;
 
 fn get_request(mut stream: &TcpStream) -> Vec<String> {
     let buf_reader = BufReader::new(&mut stream);
@@ -65,6 +66,8 @@ fn process_request(http_request: &[String], path: &str) -> HttpResponse {
         return get_not_found_response();
     }
 
+    thread::sleep(Duration::from_secs(5));
+
     match get_file_content("hello.html") {
         Some(contents) => HttpResponse::Ok(contents),
         _ => get_internal_server_error_response()
@@ -72,14 +75,19 @@ fn process_request(http_request: &[String], path: &str) -> HttpResponse {
 }
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+    if let Ok(thread_pool) = ThreadPool::new(4) {
+        let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
 
-    for stream in listener.incoming() {
-        if let Ok(mut stream) = stream {
-            let http_request = get_request(&stream);
-
-            let response = process_request(&http_request, "/");
-            stream.write_all(response.into_string().as_bytes()).unwrap();    
-        }
+        for stream in listener.incoming() {
+            if let Ok(mut stream) = stream {
+    
+                thread_pool.execute(move|| {
+                    let http_request = get_request(&stream);
+    
+                    let response = process_request(&http_request, "/");
+                    stream.write_all(response.into_string().as_bytes()).unwrap();    
+                    });
+            }
+        }    
     }
 }
