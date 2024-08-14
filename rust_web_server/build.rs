@@ -11,9 +11,9 @@ fn main() {
         .to_path_buf();
     let profile = env::var("PROFILE").expect("Failed to get profile");
 
-    let src_path = PathBuf::from("src");
+    let html_path = PathBuf::from("html");
     let dest_path = target_dir.join(profile);
 
-    fs::copy(src_path.join("hello.html"), dest_path.join("hello.html")).expect("Failed to copy file");
-    fs::copy(src_path.join("404.html"), dest_path.join("404.html")).expect("Failed to copy file");
+    fs::copy(html_path.join("hello.html"), dest_path.join("hello.html")).expect("Failed to copy file");
+    fs::copy(html_path.join("404.html"), dest_path.join("404.html")).expect("Failed to copy file");
 }

@@ -5,58 +5,75 @@ pub enum PoolCreationError {
 
 struct Worker {
     id: usize, 
-    handle: thread::JoinHandle<()>
+    handle: Option<thread::JoinHandle<()>>
 }
 
 type Job = Box<dyn FnOnce() + Send + 'static>;
 
 impl Worker {
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
-        Worker{id, handle : thread::spawn(move|| {
+        let handle = thread::spawn(move|| {
             loop {
-                let job = receiver.lock().unwrap().recv().unwrap();
+                let message = receiver.lock().unwrap().recv();
 
-                println!("Worker {id} got a job; executing.");
-
-                job();    
+                match message {
+                    Ok(job) => {
+                        println!("Worker {id} got a job; executing.");
+                        job();        
+                    },
+                    Err(_) => { 
+                        println!("Worker {id} disconnected; shutting down.");
+                        break;    
+                    }
+                }
             }
-        })}
+        });
+
+        Worker{id, handle : Some(handle)}
+    }
+}
+
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        drop(self.sender.take());
+
+        for worker in &mut self.workers {
+            println!("Shutting down worker {}", worker.id);
+
+            if let Some(handle) = worker.handle.take() {
+                handle.join().unwrap();
+            };
+        }
     }
 }
 
 pub struct ThreadPool {
     workers: Vec<Worker>,
-    sender: mpsc::Sender<Job>,
+    sender: Option<mpsc::Sender<Job>>
 }
 
 impl ThreadPool {
-    /// Create a new ThreadPool.
-    ///
-    /// The size is the number of threads in the pool.
-    ///
-    /// # Panics
-    ///
-    /// The `new` function will panic if the size is zero.
     pub fn new(size: usize) -> Result<ThreadPool, PoolCreationError> {
         if size == 0 {
             return Err(PoolCreationError::InvalidThreadCount);
         }
 
-        let mut workers = Vec::with_capacity(size);
         let (sender, receiver) = mpsc::channel();
         let receiver = Arc::new(Mutex::new(receiver));
 
-        for id in 0..size {
+        let workers = (0..size).fold(Vec::with_capacity(size), |mut workers, id| {
             workers.push(Worker::new(id, Arc::clone(&receiver)));
-        }
+            workers
+        });
 
-        Ok(ThreadPool { workers, sender })
+        Ok(ThreadPool { workers, sender: Some(sender) })
     }
 
     pub fn execute<F>(&self, f: F) where F: FnOnce() + Send + 'static {
         let job = Box::new(f);
 
-        self.sender.send(job).unwrap();
+        if let Some(sender) = self.sender.as_ref() {
+            sender.send(job).unwrap();
+        }
     }
-
 }

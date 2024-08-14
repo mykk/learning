@@ -6,7 +6,7 @@ fn get_request(mut stream: &TcpStream) -> Vec<String> {
 
     buf_reader
         .lines()
-        .filter_map(|result| result.ok())
+        .map_while(|result| result.ok())
         .take_while(|line| !line.is_empty())
         .collect()
 }
@@ -20,7 +20,7 @@ enum HttpResponse
 }
 
 impl HttpResponse {
-    fn into_string(&self) -> String {
+    fn get_response_string(&self) -> String {
         let (status_line, contents) = match self {
             HttpResponse::Ok(contents) => ("HTTP/1.1 200 OK", contents),
             HttpResponse::BadRequest(contents) => ("HTTP/1.1 400 Bad Request", contents),
@@ -44,7 +44,7 @@ fn get_file_content(file_name: &str) -> Option<String> {
 fn get_not_found_response() ->  HttpResponse {
     match get_file_content("404.html") {
         Some(content) => HttpResponse::NotFound(content),
-        _ => return get_internal_server_error_response()
+        _ => get_internal_server_error_response()
     }
 }
 
@@ -78,16 +78,13 @@ fn main() {
     if let Ok(thread_pool) = ThreadPool::new(4) {
         let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
 
-        for stream in listener.incoming() {
-            if let Ok(mut stream) = stream {
-    
-                thread_pool.execute(move|| {
-                    let http_request = get_request(&stream);
-    
-                    let response = process_request(&http_request, "/");
-                    stream.write_all(response.into_string().as_bytes()).unwrap();    
-                    });
-            }
+        for mut stream in listener.incoming().take(4).flatten() {
+            thread_pool.execute(move|| {
+                let http_request = get_request(&stream);
+
+                let response = process_request(&http_request, "/");
+                stream.write_all(response.get_response_string().as_bytes()).unwrap();    
+                });
         }    
     }
 }
