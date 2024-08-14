@@ -61,10 +61,9 @@ impl ThreadPool {
         let (sender, receiver) = mpsc::channel();
         let receiver = Arc::new(Mutex::new(receiver));
 
-        let workers = (0..size).fold(Vec::with_capacity(size), |mut workers, id| {
-            workers.push(Worker::new(id, Arc::clone(&receiver)));
-            workers
-        });
+        let workers = (0..size).map(|id| {
+            Worker::new(id, Arc::clone(&receiver))
+        }).collect();
 
         Ok(ThreadPool { workers, sender: Some(sender) })
     }
