@@ -33,39 +33,37 @@ fn main() -> ! {
     }).unwrap();
     nb::block!(serial.flush()).unwrap();
 
-    let mut buffer: Vec<u8, 32> = Vec::new();
-
     loop {
-        let byte = nb::block!(serial.read()).unwrap();
-        if byte as char == '\r' {
-            nb::block!(buffer.iter().rev().try_for_each(|b|serial.write_byte(*b).map(|_|()))).unwrap();
-            nb::block!( match serial.write_str("\r\n") {
-                Ok(_) => Ok::<(), nb::Error<fmt::Error>>(()),
-                Err(er) => Err(nb::Error::Other(er))
-            }).unwrap();
-        
-            nb::block!(serial.flush()).unwrap();
+        let mut buffer: Vec<u8, 32> = Vec::new();
 
-            buffer.clear();
-        }
-        else {
-            match buffer.push(byte) {
-                Ok(_) => {},
-                Err(_) => {
-                    nb::block!( match serial.write_str("Overflow! Here's what you had so far: \r\n") {
-                        Ok(_) => Ok::<(), nb::Error<fmt::Error>>(()),
-                        Err(er) => Err(nb::Error::Other(er))
-                    }).unwrap();
-        
-                    nb::block!(buffer.iter().rev().try_for_each(|b|serial.write_byte(*b).map(|_|()))).unwrap();
-                    buffer.clear();
+        loop {
+            let byte = nb::block!(serial.read()).unwrap();
+            if byte as char == '\r' {
+                break;
+            }
+            else {
+                match buffer.push(byte) {
+                    Ok(_) => {},
+                    Err(_) => {
+                        nb::block!( match serial.write_str("Overflow! Here's what you had so far: \r\n") {
+                            Ok(_) => Ok::<(), nb::Error<fmt::Error>>(()),
+                            Err(er) => Err(nb::Error::Other(er))
+                        }).unwrap();
 
-                    nb::block!( match serial.write_str("\r\n") {
-                        Ok(_) => Ok::<(), nb::Error<fmt::Error>>(()),
-                        Err(er) => Err(nb::Error::Other(er))
-                    }).unwrap();
+                        break;
+                    }
                 }
             }
         }
+        
+        nb::block!(buffer.iter().rev().try_for_each(|b|serial.write_byte(*b).map(|_|()))).unwrap();
+        nb::block!( match serial.write_str("\r\n") {
+            Ok(_) => Ok::<(), nb::Error<fmt::Error>>(()),
+            Err(er) => Err(nb::Error::Other(er))
+        }).unwrap();
+    
+        nb::block!(serial.flush()).unwrap();
+
+        buffer.clear();
     }
 }
