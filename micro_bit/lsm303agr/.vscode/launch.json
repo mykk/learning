@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "cwd": "${workspaceRoot}",
+            "executable": "${workspaceFolder}/target/thumbv7em-none-eabihf/debug/lsm303agr",
+            "name": "Debug",
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "device": "nrf52",
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/nrf52.cfg"
+              ],
+            "searchDir": [],
+            "runToEntryPoint": "main",
+            "showDevDebugOutput": "none",
+            "preLaunchTask": "build"
+        },
+    ]
+  }
+  
