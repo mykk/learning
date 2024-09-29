@@ -1,0 +1,23 @@
+[package]
+name = "led_compass"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+microbit-v2 = "0.15.1"
+cortex-m = { version = "0.7.6"}
+cortex-m-rt = "0.7.0"
+panic-halt = "0.2.0"
+rtt-target = { version = "0.3.1", features = ["cortex-m"] }
+panic-rtt-target = { version = "0.1.2", features = ["cortex-m"] }
+nb = "1.1.0"
+
+heapless = "0.8.0"
+embedded-hal = "1.0.0"
+embedded-io = "0.6.1"
+libm = "0.2.1"
+
+lsm303agr = "1.1.0"
+
+[dev-dependencies]
